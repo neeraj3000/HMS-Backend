@@ -1,12 +1,39 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from models.prescription import Prescription
 from models.lab_report import LabReport
 from schemas.lab_report_schema import LabReportCreate, LabReportUpdate
 
+from sqlalchemy.orm import Session, joinedload
+
 def get_lab_reports(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(LabReport).offset(skip).limit(limit).all()
+    """
+    Fetch all lab reports along with their related prescription and student details.
+    """
+    return (
+        db.query(LabReport)
+        .options(
+            joinedload(LabReport.prescription)  # load Prescription
+            .joinedload(Prescription.student)   # load related Student
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
 
 def get_lab_report(db: Session, report_id: int):
-    return db.query(LabReport).filter(LabReport.id == report_id).first()
+    """
+    Fetch a single lab report by ID along with its related prescription and student details.
+    """
+    return (
+        db.query(LabReport)
+        .options(
+            joinedload(LabReport.prescription)
+            .joinedload(Prescription.student)
+        )
+        .filter(LabReport.id == report_id)
+        .first()
+    )
 
 def create_lab_report(db: Session, lab_report: LabReportCreate):
     db_lab_report = LabReport(**lab_report.dict())

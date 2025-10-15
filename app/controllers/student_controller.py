@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 
 # CREATE
 def create_student(db: Session, student: StudentCreate):
-    if db.query(Student).filter(Student.student_id == student.student_id).first():
+    if db.query(Student).filter(Student.id_number == student.id_number).first():
         raise HTTPException(status_code=400, detail="Student already exists")
     new_student = Student(**student.dict())
     db.add(new_student)
@@ -21,8 +21,14 @@ def get_students(db: Session):
     return db.query(Student).all()
 
 # READ - one
-def get_student(db: Session, student_id: int):
+def get_student(db: Session, student_id: str):
     student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return student
+
+def get_student_by_id_number(db: Session, id_number: str):
+    student = db.query(Student).filter(Student.id_number == id_number).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     return student
@@ -32,7 +38,7 @@ def update_student(db: Session, student_id: int, student_data: StudentBase):
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    student.student_id = student_data.student_id
+    student.id_number = student_data.id_number
     student.email = student_data.email
     student.name = student_data.name
     student.branch = student_data.branch
@@ -42,8 +48,8 @@ def update_student(db: Session, student_id: int, student_data: StudentBase):
     return student
 
 # DELETE
-def delete_student(db: Session, student_id: int):
-    student = db.query(Student).filter(Student.id == student_id).first()
+def delete_student(db: Session, id_number: int):
+    student = db.query(Student).filter(Student.id == id_number).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     db.delete(student)
@@ -54,7 +60,7 @@ def delete_student(db: Session, student_id: int):
 def upload_students_csv(db: Session, file: UploadFile):
     """
     Accepts a CSV file with columns:
-    student_id, name, email, branch, section
+    id_number, name, email, branch, section
     Validates each row with StudentCreate schema before insert.
     """
     try:
@@ -66,7 +72,6 @@ def upload_students_csv(db: Session, file: UploadFile):
     inserted = []
 
     for i, row in enumerate(reader, start=1):
-        # Validate row using StudentCreate schema
         try:
             student_in = StudentCreate(**row)
         except Exception as e:
@@ -76,7 +81,7 @@ def upload_students_csv(db: Session, file: UploadFile):
             )
 
         # Skip if already exists
-        if db.query(Student).filter(Student.student_id == student_in.student_id).first():
+        if db.query(Student).filter(Student.id_number == student_in.id_number).first():
             continue  
 
         new_student = Student(**student_in.dict())
@@ -95,9 +100,9 @@ def download_students_csv(db: Session):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["id", "student_id", "name", "email", "branch", "section"])
+    writer.writerow(["id", "id_number", "name", "email", "branch", "section"])
     for s in students:
-        writer.writerow([s.id, s.student_id, s.name, s.email, s.branch, s.section])
+        writer.writerow([s.id, s.id_number, s.name, s.email, s.branch, s.section])
 
     output.seek(0)
     headers = {

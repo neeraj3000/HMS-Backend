@@ -16,8 +16,15 @@ def list_students(db: Session = Depends(get_db)):
     return student_controller.get_students(db)
 
 @router.get("/{student_id}", response_model=StudentOut)
-def get_student(student_id: int, db: Session = Depends(get_db)):
+def get_student(student_id: str, db: Session = Depends(get_db)):
     return student_controller.get_student(db, student_id)
+
+@router.get("/id_number/{id_number}")
+def read_student(id_number: str, db: Session = Depends(get_db)):
+    """
+    Fetch student by id_number
+    """
+    return student_controller.get_student_by_id_number(db, id_number)
 
 @router.put("/{student_id}", response_model=StudentOut)
 def update_student(student_id: int, student: StudentBase, db: Session = Depends(get_db)):

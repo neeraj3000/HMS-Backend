@@ -17,7 +17,18 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+class GoogleLogin(BaseModel):
+    token: str
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
 class UserOut(UserBase):
     id: int
+    username: str
+    email: EmailStr
+    role: UserRole
+
     class Config:
         orm_mode = True

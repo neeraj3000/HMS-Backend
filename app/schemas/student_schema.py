@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 
 class StudentBase(BaseModel):
-    student_id: str
+    id_number: str
     email: EmailStr
     name: str
     branch: Optional[str] = None
@@ -13,5 +13,11 @@ class StudentCreate(StudentBase):
 
 class StudentOut(StudentBase):
     id: int
+    id_number: str
+    email: EmailStr
+    name: str
+    branch: Optional[str] = None
+    section: Optional[str] = None
+    role: str = "student"
     class Config:
         orm_mode = True

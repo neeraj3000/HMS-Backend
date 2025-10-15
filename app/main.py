@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import auth_routes, lab_report_routes, medicine_routes, prescription_medicine_routes, prescription_routes, inventory_routes, user_routes
+from routes import auth_routes, student_routes, lab_report_routes, medicine_routes, prescription_medicine_routes, prescription_routes, inventory_routes, user_routes
 from database import Base, engine
 
 from models.student import Student
@@ -20,7 +20,7 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=["*"],  # Frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,9 +28,8 @@ app.add_middleware(
 
 # Include auth routes FIRST
 app.include_router(auth_routes.router, prefix="/api")
-
-# Include routes
 app.include_router(user_routes.router, prefix="/api", tags=["Users"])
+app.include_router(student_routes.router)
 app.include_router(medicine_routes.router)
 app.include_router(lab_report_routes.router)
 app.include_router(prescription_routes.router)
