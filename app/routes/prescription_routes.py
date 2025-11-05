@@ -35,6 +35,13 @@ def read_prescription(prescription_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Prescription not found")
     return pres
 
+@router.get("/student/{student_id}")
+def get_pescriptions_by_id(student_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    pres = ctrl.get_prescriptions_by_studentid(db, student_id, skip, limit)
+    if not pres:
+        raise HTTPException(status_code=404, detail="Prescription not found")
+    return pres
+
 @router.post("/")
 def create_prescription(prescription: PrescriptionCreate, db: Session = Depends(get_db)):
     return ctrl.create_prescription(db, prescription)
@@ -81,11 +88,12 @@ def download_prescription(
     pdf.setTitle(f"Prescription_{prescription_id}")
 
     # Add prescription details
-    pdf.drawString(50, 800, f"Prescription ID: {prescription.id}")
-    pdf.drawString(50, 780, f"Student ID: {prescription.student_id}")
-    pdf.drawString(50, 760, f"Nurse ID: {prescription.nurse_id}")
-    pdf.drawString(50, 740, f"Doctor ID: {prescription.doctor_id}")
-    pdf.drawString(50, 720, f"Notes: {prescription.notes or 'N/A'}")
+    pdf.drawString(50, 820, f"Prescription ID: {prescription.id}")
+    pdf.drawString(50, 800, f"Student ID: {prescription.student_id}")
+    pdf.drawString(50, 780, f"Nurse ID: {prescription.nurse_id}")
+    pdf.drawString(50, 760, f"Doctor ID: {prescription.doctor_id}")
+    pdf.drawString(50, 740, f"Nurse Notes: {prescription.nurse_notes or 'N/A'}")
+    pdf.drawString(50, 720, f"Doctor Notes: {prescription.doctor_notes or 'N/A'}")
     pdf.drawString(50, 700, f"Weight: {prescription.weight or 'N/A'}")
     pdf.drawString(50, 680, f"BP: {prescription.bp or 'N/A'}")
     pdf.drawString(50, 660, f"Temperature: {prescription.temperature or 'N/A'}")

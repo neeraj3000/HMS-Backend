@@ -5,9 +5,14 @@ from datetime import datetime
 class PrescriptionBase(BaseModel):
     student_id: int
     nurse_id: int
-    notes: Optional[str] = None
+    nurse_notes: Optional[str] = None
+    doctor_notes: Optional[str] = None
+    nurse_image_url: Optional[str] = None
+    doctor_image_url: Optional[str] = None
+    audio_url: Optional[str] = None
     weight: Optional[str] = None
     bp: Optional[str] = None
+    age: Optional[int] = None
     temperature: Optional[str] = None
 
 class PrescriptionCreate(PrescriptionBase):
@@ -15,9 +20,14 @@ class PrescriptionCreate(PrescriptionBase):
 
 class PrescriptionUpdate(BaseModel):
     doctor_id: Optional[int] = None
-    notes: Optional[str] = None
+    nurse_notes: Optional[str] = None
+    doctor_notes: Optional[str] = None
+    nurse_image_url: Optional[str] = None
+    doctor_image_url: Optional[str] = None
+    audio_url: Optional[str] = None
     weight: Optional[str] = None
     bp: Optional[str] = None
+    age: Optional[int] = None
     temperature: Optional[str] = None
     status: Optional[str] = None
 

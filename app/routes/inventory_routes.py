@@ -1,10 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException
+from curses.ascii import ctrl
+from click import File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas.inventory_schema import InventoryItemCreate, InventoryItemUpdate, InventoryItemOut
 from controllers import inventory_controller
 
 router = APIRouter(prefix="/inventory", tags=["Inventory"])
+
+@router.post("/bulk-upload")
+async def bulk_upload_inventory(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    result = inventory_controller.bulk_upload_inventory(db, file.file)
+    return result
+
+@router.get("/download")
+def download_inventory(db: Session = Depends(get_db)):
+    excel_buffer = inventory_controller.get_inventory_excel(db)
+    return StreamingResponse(
+        excel_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=inventory-items.xlsx"},
+    )
 
 @router.post("/", response_model=InventoryItemOut)
 def create_inventory_item(item: InventoryItemCreate, db: Session = Depends(get_db)):

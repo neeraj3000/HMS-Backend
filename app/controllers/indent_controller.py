@@ -1,0 +1,101 @@
+import cloudinary.uploader
+from datetime import datetime
+import openpyxl
+from io import BytesIO
+from models.indent import Indent
+from models.medicine import Medicine
+from sqlalchemy.orm import Session
+import requests
+
+
+def upload_indent(file, uploaded_by: str, db: Session):
+    """Upload indent file to Cloudinary and store metadata."""
+    upload_result = cloudinary.uploader.upload(
+        file.file,
+        folder="indents/",
+        resource_type="raw"
+    )
+
+    file_url = upload_result.get("secure_url")
+    file_name = file.filename
+
+    new_indent = Indent(
+        file_name=file_name,
+        file_url=file_url,
+        uploaded_by=uploaded_by,
+        status="pending",
+        uploaded_at=datetime.utcnow()
+    )
+    db.add(new_indent)
+    db.commit()
+    db.refresh(new_indent)
+
+    return {
+        "message": "Indent uploaded successfully",
+        "indent_id": new_indent.id,
+        "file_url": file_url,
+        "status": new_indent.status
+    }
+
+
+def approve_indent(indent_id: int, approved_by: str, db: Session):
+    """Approve indent: update medicine stock and mark indent as approved."""
+    indent = db.query(Indent).filter(Indent.id == indent_id).first()
+    if not indent:
+        return {"error": "Indent not found"}
+    if indent.status != "pending":
+        return {"error": "Indent already processed"}
+
+    response = requests.get(indent.file_url)
+    workbook = openpyxl.load_workbook(BytesIO(response.content))
+    sheet = workbook.active
+
+    inserted, updated = 0, 0
+
+    for index, row in enumerate(sheet.iter_rows(min_row=2, values_only=True)):
+        try:
+            s_no, drug_name, brand, present_qty, required_qty, cost, tax, total_cost = row[:8]
+            if not drug_name:
+                continue
+
+            name = str(drug_name).strip().upper()
+            existing = db.query(Medicine).filter(Medicine.name == name).first()
+
+            if existing:
+                existing.quantity = (existing.quantity or 0) + int(required_qty or 0)
+                existing.brand = brand or existing.brand
+                existing.cost = cost or existing.cost
+                existing.tax = tax or existing.tax
+                existing.total_cost = total_cost or existing.total_cost
+                updated += 1
+            else:
+                new_medicine = Medicine(
+                    name=name,
+                    brand=brand,
+                    quantity=int(present_qty or 0) + int(required_qty or 0),
+                    cost=cost,
+                    tax=tax,
+                    total_cost=total_cost
+                )
+                db.add(new_medicine)
+                inserted += 1
+        except Exception:
+            continue
+
+    indent.status = "approved"
+    indent.approved_by = approved_by
+    indent.approved_at = datetime.now()
+
+    db.commit()
+
+    return {
+        "message": "Indent approved successfully",
+        "inserted": inserted,
+        "updated": updated,
+        "approved_by": approved_by
+    }
+
+
+def get_all_indents(db: Session):
+    """List all indents with their details."""
+    return db.query(Indent).order_by(Indent.uploaded_at.desc()).all()

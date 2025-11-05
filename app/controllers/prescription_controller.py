@@ -33,7 +33,11 @@ def get_prescriptions(db: Session, skip: int = 0, limit: int = 100):
         result.append({
             "id": pres.id,
             "status": pres.status,
-            "notes": pres.notes,
+            "nurse_notes": pres.nurse_notes,
+            "doctor_notes": pres.doctor_notes,
+            "nurse_image_url": pres.nurse_image_url,
+            "doctor_image_url": pres.doctor_image_url,
+            "audio_url": pres.audio_url,
             "created_at": pres.created_at,
             "updated_at": pres.updated_at,
 
@@ -58,7 +62,7 @@ def get_prescriptions(db: Session, skip: int = 0, limit: int = 100):
 
             # lab reports list
             "lab_reports": [
-                {"test_name": lab.test_name, "status": lab.status}
+                {"id": lab.id, "test_name": lab.test_name, "status": lab.status, "result": lab.result, "created_at": lab.created_at, "updated_at": lab.updated_at}
                 for lab in pres.lab_reports
             ]
         })
@@ -87,12 +91,17 @@ def get_prescription(db: Session, prescription_id: int):
     return {
         "id": pres.id,
         "status": pres.status,
-        "notes": pres.notes,
+        "nurse_notes": pres.nurse_notes,
+        "doctor_notes": pres.doctor_notes,
+        "nurse_image_url": pres.nurse_image_url,
+        "doctor_image_url": pres.doctor_image_url,
+        "audio_url": pres.audio_url,
         "created_at": pres.created_at,
         "updated_at": pres.updated_at,
         "student_id": pres.student_id,
         "temperature": pres.temperature,
         "bp": pres.bp,
+        "age": pres.age,
         "weight": pres.weight,
         # student details
         "student": {
@@ -105,7 +114,13 @@ def get_prescription(db: Session, prescription_id: int):
         # medicines list
         "medicines": [
             {
-                "medicine_name": med.medicine.name if med.medicine else "Unknown",
+                "id": med.id,
+                "medicine": {
+                    "id": med.medicine.id if med.medicine else None,
+                    "name": med.medicine.name if med.medicine else "Unknown",
+                    "category": med.medicine.category if med.medicine else None,
+                    "quantity": med.medicine.quantity if med.medicine else None
+                },
                 "quantity_prescribed": med.quantity_prescribed,
                 "quantity_issued": getattr(med, "quantity_issued", None)
             }
@@ -114,14 +129,93 @@ def get_prescription(db: Session, prescription_id: int):
 
         # lab reports list
         "lab_reports": [
-            {"test_name": lab.test_name, "status": lab.status}
+            {"id": lab.id, "test_name": lab.test_name, "status": lab.status, "result": lab.result, "created_at": lab.created_at, "updated_at": lab.updated_at}
             for lab in pres.lab_reports
         ]
     }
 
+def get_prescriptions_by_studentid( db: Session, student_id: int, skip: int = 0, limit: int = 100):
+    """
+    Fetch all prescriptions for a given student (by student.id)
+    including related student info, medicines, and lab reports.
+    """
+    prescriptions = (
+        db.query(Prescription)
+        .options(
+            joinedload(Prescription.student),
+            joinedload(Prescription.medicines).joinedload(PrescriptionMedicine.medicine),
+            joinedload(Prescription.lab_reports)
+        )
+        .filter(Prescription.student_id == student_id)
+        .order_by(Prescription.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    if not prescriptions:
+        raise HTTPException(status_code=404, detail="No prescriptions found for this student")
+
+    return [
+        {
+            "id": pres.id,
+            "status": pres.status,
+            "nurse_notes": pres.nurse_notes,
+            "doctor_notes": pres.doctor_notes,
+            "nurse_image_url": pres.nurse_image_url,
+            "doctor_image_url": pres.doctor_image_url,
+            "audio_url": pres.audio_url,
+            "created_at": pres.created_at,
+            "updated_at": pres.updated_at,
+            "student_id": pres.student_id,
+            "temperature": pres.temperature,
+            "bp": pres.bp,
+            "age": pres.age,
+            "weight": pres.weight,
+
+            # student details
+            "student": {
+                "id_number": pres.student.id_number,
+                "name": pres.student.name,
+                "branch": pres.student.branch,
+                "section": pres.student.section
+            } if pres.student else None,
+
+            # medicines list
+            "medicines": [
+                {
+                    "id": med.id,
+                    "medicine": {
+                        "id": med.medicine.id if med.medicine else None,
+                        "name": med.medicine.name if med.medicine else "Unknown",
+                        "category": med.medicine.category if med.medicine else None,
+                        "quantity": med.medicine.quantity if med.medicine else None
+                    },
+                    "quantity_prescribed": med.quantity_prescribed,
+                    "quantity_issued": getattr(med, "quantity_issued", None)
+                }
+                for med in pres.medicines
+            ],
+
+            # lab reports list
+            "lab_reports": [
+                {
+                    "id": lab.id,
+                    "test_name": lab.test_name,
+                    "status": lab.status,
+                    "result": lab.result,
+                    "created_at": lab.created_at,
+                    "updated_at": lab.updated_at
+                }
+                for lab in pres.lab_reports
+            ]
+        }
+        for pres in prescriptions
+    ]
+
 
 def create_prescription(db: Session, prescription: PrescriptionCreate):
-    db_prescription = Prescription(**prescription.dict(exclude={"medicines"}))
+    db_prescription = Prescription(**prescription.model_dump(exclude={"medicines"}))
     db.add(db_prescription)
     db.commit()
     db.refresh(db_prescription)
@@ -201,9 +295,14 @@ def get_pending_prescriptions(db: Session):
             "id_number": pres.student.id_number if pres.student else None,
             "nurse_id": pres.nurse_id,
             "doctor_id": pres.doctor_id,
-            "notes": pres.notes,
+            "nurse_notes": pres.nurse_notes,
+            "doctor_notes": pres.doctor_notes,
+            "nurse_image_url": pres.nurse_image_url,
+            "doctor_image_url": pres.doctor_image_url,
+            "audio_url": pres.audio_url,
             "weight": pres.weight,
             "bp": pres.bp,
+            "age": pres.age,
             "temperature": pres.temperature,
             "status": pres.status,
             "created_at": pres.created_at,

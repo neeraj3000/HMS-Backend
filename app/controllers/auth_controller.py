@@ -82,7 +82,7 @@ def google_login_controller(google_token: str, db):
 
         print("Creating new student record…")
         student = Student(
-            id_number=email.split("@")[0].upper(),
+            id_number=email.split("@")[0].upper()[1:],
             email=email,
             name=name,
         )
