@@ -108,7 +108,8 @@ def get_prescription(db: Session, prescription_id: int):
             "id_number": pres.student.id_number,
             "name": pres.student.name,
             "branch": pres.student.branch,
-            "section": pres.student.section
+            "section": pres.student.section,
+            "email": pres.student.email
         } if pres.student else None,
 
         # medicines list
@@ -118,7 +119,6 @@ def get_prescription(db: Session, prescription_id: int):
                 "medicine": {
                     "id": med.medicine.id if med.medicine else None,
                     "name": med.medicine.name if med.medicine else "Unknown",
-                    "category": med.medicine.category if med.medicine else None,
                     "quantity": med.medicine.quantity if med.medicine else None
                 },
                 "quantity_prescribed": med.quantity_prescribed,
@@ -178,7 +178,8 @@ def get_prescriptions_by_studentid( db: Session, student_id: int, skip: int = 0,
                 "id_number": pres.student.id_number,
                 "name": pres.student.name,
                 "branch": pres.student.branch,
-                "section": pres.student.section
+                "section": pres.student.section,
+                "email": pres.student.email
             } if pres.student else None,
 
             # medicines list
@@ -188,7 +189,6 @@ def get_prescriptions_by_studentid( db: Session, student_id: int, skip: int = 0,
                     "medicine": {
                         "id": med.medicine.id if med.medicine else None,
                         "name": med.medicine.name if med.medicine else "Unknown",
-                        "category": med.medicine.category if med.medicine else None,
                         "quantity": med.medicine.quantity if med.medicine else None
                     },
                     "quantity_prescribed": med.quantity_prescribed,
