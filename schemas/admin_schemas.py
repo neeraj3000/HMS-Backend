@@ -33,7 +33,7 @@ class UserUpdate(BaseModel):
 class UserOut(UserBase):
     id: int
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class StudentBase(BaseModel):
@@ -47,7 +47,7 @@ class StudentBase(BaseModel):
 class StudentOut(StudentBase):
     id: int
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class MedicineBase(BaseModel):
@@ -76,7 +76,7 @@ class MedicineOut(MedicineBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PrescriptionOut(BaseModel):
@@ -98,7 +98,7 @@ class PrescriptionOut(BaseModel):
     updated_at: Optional[datetime]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class DashboardStats(BaseModel):

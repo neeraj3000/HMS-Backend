@@ -1,3 +1,4 @@
+import os
 import cloudinary.uploader
 from datetime import datetime
 import openpyxl
@@ -6,21 +7,43 @@ from models.indent import Indent
 from models.medicine import Medicine
 from sqlalchemy.orm import Session
 import requests
+from cloudinary.utils import cloudinary_url
 
 
 def upload_indent(file, uploaded_by: str, db: Session):
-    """Upload indent file to Cloudinary and store metadata."""
+    """Upload indent file to Cloudinary as a raw Excel file with a proper filename."""
+    original_name = file.filename or "indent.xlsx"
+    name, ext = os.path.splitext(original_name)
+    if not ext:
+        ext = ".xlsx"
+    final_name = name + ext
+
+    # ✅ Upload with proper public_id (so it doesn't become 'stream')
     upload_result = cloudinary.uploader.upload(
         file.file,
-        folder="indents/",
-        resource_type="raw"
+        folder="indents",
+        public_id=name,              # explicitly sets filename
+        resource_type="raw",         # handle Excel properly
+        type="upload",               # make it public
+        use_filename=True,           
+        unique_filename=False,
+        filename_override=final_name
     )
 
     file_url = upload_result.get("secure_url")
-    file_name = file.filename
+    public_id = upload_result.get("public_id")
+
+    # ✅ Create a clean downloadable link (with Content-Disposition: attachment)
+    download_url, _ = cloudinary_url(
+        public_id,
+        resource_type="raw",
+        type="upload",
+        flags="attachment",
+        attachment=final_name
+    )
 
     new_indent = Indent(
-        file_name=file_name,
+        file_name=final_name,
         file_url=file_url,
         uploaded_by=uploaded_by,
         status="pending",
@@ -30,13 +53,17 @@ def upload_indent(file, uploaded_by: str, db: Session):
     db.commit()
     db.refresh(new_indent)
 
+    print("✅ Uploaded file name:", final_name)
+    print("✅ View URL:", file_url)
+    print("✅ Download URL:", download_url)
+
     return {
         "message": "Indent uploaded successfully",
         "indent_id": new_indent.id,
-        "file_url": file_url,
+        "file_url": file_url,        # for viewing in iframe
+        "download_url": download_url, # for direct .xlsx download
         "status": new_indent.status
     }
-
 
 def approve_indent(indent_id: int, approved_by: str, db: Session):
     """Approve indent: update medicine stock and mark indent as approved."""
@@ -58,7 +85,7 @@ def approve_indent(indent_id: int, approved_by: str, db: Session):
             if not drug_name:
                 continue
 
-            name = str(drug_name).strip().upper()
+            name = str(drug_name).strip()
             existing = db.query(Medicine).filter(Medicine.name == name).first()
 
             if existing:

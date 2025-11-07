@@ -20,4 +20,4 @@ class StudentOut(StudentBase):
     section: Optional[str] = None
     role: str = "student"
     class Config:
-        orm_mode = True
+        from_attributes = True

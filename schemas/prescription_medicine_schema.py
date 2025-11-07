@@ -16,4 +16,4 @@ class PrescriptionMedicineResponse(PrescriptionMedicineBase):
     id: int
     quantity_issued: Optional[int]
     class Config:
-        orm_mode = True
+        from_attributes = True
