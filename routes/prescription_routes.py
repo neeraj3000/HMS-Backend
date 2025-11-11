@@ -2,7 +2,7 @@ from io import BytesIO
 from os import stat
 import os
 from reportlab.pdfgen import canvas
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from models.prescription import Prescription
@@ -24,8 +24,18 @@ def get_pending_prescriptions(db: Session = Depends(get_db)):
 
 # General list
 @router.get("/")
-def read_prescriptions(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return ctrl.get_prescriptions(db, skip, limit)
+def read_prescriptions(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, le=100),
+    search: str = Query(None),
+    status: str = Query(None),
+    date: str = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get prescriptions with infinite scrolling + filtering.
+    """
+    return ctrl.get_prescriptions(db, page, limit, search, status, date)
 
 # Get by ID (below pending)
 @router.get("/{prescription_id}")

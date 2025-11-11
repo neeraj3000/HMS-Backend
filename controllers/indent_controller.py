@@ -18,7 +18,7 @@ def upload_indent(file, uploaded_by: str, db: Session):
         ext = ".xlsx"
     final_name = name + ext
 
-    # ✅ Upload with proper public_id (so it doesn't become 'stream')
+    #  Upload with proper public_id (so it doesn't become 'stream')
     upload_result = cloudinary.uploader.upload(
         file.file,
         folder="indents",
@@ -33,7 +33,7 @@ def upload_indent(file, uploaded_by: str, db: Session):
     file_url = upload_result.get("secure_url")
     public_id = upload_result.get("public_id")
 
-    # ✅ Create a clean downloadable link (with Content-Disposition: attachment)
+    #  Create a clean downloadable link (with Content-Disposition: attachment)
     download_url, _ = cloudinary_url(
         public_id,
         resource_type="raw",
@@ -52,10 +52,6 @@ def upload_indent(file, uploaded_by: str, db: Session):
     db.add(new_indent)
     db.commit()
     db.refresh(new_indent)
-
-    print("✅ Uploaded file name:", final_name)
-    print("✅ View URL:", file_url)
-    print("✅ Download URL:", download_url)
 
     return {
         "message": "Indent uploaded successfully",

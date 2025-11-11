@@ -11,6 +11,7 @@ class LabReport(Base):
     test_name = Column(String(100   ), nullable=False)
     status = Column(String(50), default="Lab Test Requested")
     result = Column(Text, nullable=True)  # can be a file path or S3 link
+    result_url = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

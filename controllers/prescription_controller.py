@@ -8,28 +8,101 @@ from models.prescription import Prescription
 from models.prescription_medicine import PrescriptionMedicine
 from models.medicine import Medicine
 from schemas.prescription_schema import PrescriptionCreate, PrescriptionUpdate
-from schemas.prescription_medicine_schema import PrescriptionMedicineCreate
+from sqlalchemy import or_, and_,cast, String, func, case
+from datetime import datetime
 
-def get_prescriptions(db: Session, skip: int = 0, limit: int = 100):
-    """
-    Fetch all prescriptions with related student details, medicines, and lab reports.
-    Uses joinedload for efficient eager loading.
-    """
-    prescriptions = (
+
+def get_prescriptions(
+    db: Session,
+    page: int = 1,
+    limit: int = 10,
+    search: str = None,
+    status: str = None,
+    date: str = None
+):
+    skip = (page - 1) * limit
+
+    base_query = (
         db.query(Prescription)
         .options(
-            joinedload(Prescription.student),  # student relationship
+            joinedload(Prescription.student),
             joinedload(Prescription.medicines).joinedload(PrescriptionMedicine.medicine),
             joinedload(Prescription.lab_reports)
         )
-        .offset(skip)
-        .limit(limit)
-        .all()
+        .join(Student)
     )
 
-    # Transform the result for easier serialization
+    filters = []
+
+    # --- Search ---
+    if search and search.strip():
+        search = search.strip()
+        search_term = f"%{search}%"
+
+        id_condition = cast(Prescription.id, String).ilike(search_term)
+        name_condition = Student.name.ilike(search_term)
+        idnum_condition = Student.id_number.ilike(search_term)
+
+        filters.append(or_(id_condition, name_condition, idnum_condition))
+
+        relevance_score = case(
+            (func.lower(Student.id_number) == func.lower(search), 3),
+            (func.lower(Student.name).startswith(func.lower(search)), 2),
+            (func.lower(Student.name).ilike(search_term), 1),
+            else_=0
+        ).label("score")
+
+        query = (
+            db.query(Prescription, relevance_score)
+            .join(Student)
+            .filter(or_(id_condition, name_condition, idnum_condition))
+            .order_by(desc("score"), desc(Prescription.created_at))
+        )
+    else:
+        query = base_query.order_by(desc(Prescription.created_at))
+
+    # --- Status Filter ---
+    if status and status.lower() != "all":
+        filters.append(Prescription.status.ilike(f"%{status}%"))
+
+    # --- Date Filter ---
+    if date:
+        try:
+            date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+            filters.append(
+                and_(
+                    Prescription.created_at >= datetime.combine(date_obj, datetime.min.time()),
+                    Prescription.created_at < datetime.combine(date_obj, datetime.max.time())
+                )
+            )
+        except ValueError:
+            pass
+
+    # Apply filters
+    if filters:
+        query = query.filter(and_(*filters))
+
+    total = query.count()
+    rows = query.offset(skip).limit(limit).all()
+    has_more = (page * limit) < total
+
     result = []
-    for pres in prescriptions:
+
+    for row in rows:
+        # Handle all possible return shapes safely
+        if hasattr(row, "_mapping"):
+            # SQLAlchemy Row object
+            pres = row._mapping.get("Prescription", None)
+            score = row._mapping.get("score", None)
+        elif isinstance(row, tuple):
+            pres, score = row
+        else:
+            pres = row
+            score = None
+
+        if pres is None:
+            continue  # Skip invalid entries just in case
+
         result.append({
             "id": pres.id,
             "status": pres.status,
@@ -40,33 +113,42 @@ def get_prescriptions(db: Session, skip: int = 0, limit: int = 100):
             "audio_url": pres.audio_url,
             "created_at": pres.created_at,
             "updated_at": pres.updated_at,
-
-            # student details
             "student": {
                 "id_number": pres.student.id_number,
                 "name": pres.student.name,
                 "branch": pres.student.branch,
                 "section": pres.student.section,
-                "email": pres.student.email
+                "email": pres.student.email,
             } if pres.student else None,
-
-            # medicines list
             "medicines": [
                 {
                     "medicine_name": med.medicine.name if med.medicine else "Unknown",
                     "quantity_prescribed": med.quantity_prescribed,
-                    "quantity_issued": getattr(med, "quantity_issued", None)
+                    "quantity_issued": getattr(med, "quantity_issued", None),
                 }
                 for med in pres.medicines
             ],
-
-            # lab reports list
             "lab_reports": [
-                {"id": lab.id, "test_name": lab.test_name, "status": lab.status, "result": lab.result, "created_at": lab.created_at, "updated_at": lab.updated_at}
+                {
+                    "id": lab.id,
+                    "test_name": lab.test_name,
+                    "status": lab.status,
+                    "result": lab.result,
+                    "created_at": lab.created_at,
+                    "updated_at": lab.updated_at,
+                }
                 for lab in pres.lab_reports
-            ]
+            ],
         })
-    return result
+
+    return {
+        "data": result,
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "has_more": has_more,
+    }
+
 
 
 def get_prescription(db: Session, prescription_id: int):

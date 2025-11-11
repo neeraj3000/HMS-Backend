@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import auth_routes, student_routes, lab_report_routes, medicine_routes, prescription_medicine_routes, prescription_routes, inventory_routes, user_routes, admin_router, indent_router
+from routes import auth_routes, staff_profile_router, stats_routes, student_routes, lab_report_routes, medicine_routes, prescription_medicine_routes, prescription_routes, inventory_routes, user_routes, admin_router, indent_router
 from database import Base, engine
 
 from models.student import Student
@@ -37,6 +37,9 @@ app.include_router(prescription_medicine_routes.router)
 app.include_router(inventory_routes.router)
 app.include_router(admin_router.router)
 app.include_router(indent_router.router)
+app.include_router(staff_profile_router.router)
+app.include_router(stats_routes.router)
+
 
 @app.get("/")
 def root():
