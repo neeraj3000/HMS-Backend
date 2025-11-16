@@ -7,6 +7,7 @@ class PrescriptionBase(BaseModel):
     nurse_id: int
     nurse_notes: Optional[str] = None
     doctor_notes: Optional[str] = None
+    ai_summary: Optional[str] = None
     nurse_image_url: Optional[str] = None
     doctor_image_url: Optional[str] = None
     audio_url: Optional[str] = None
@@ -22,6 +23,7 @@ class PrescriptionUpdate(BaseModel):
     doctor_id: Optional[int] = None
     nurse_notes: Optional[str] = None
     doctor_notes: Optional[str] = None
+    ai_summary: Optional[str] = None
     nurse_image_url: Optional[str] = None
     doctor_image_url: Optional[str] = None
     audio_url: Optional[str] = None

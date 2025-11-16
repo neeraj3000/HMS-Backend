@@ -2,7 +2,7 @@ from io import BytesIO
 from os import stat
 import os
 from reportlab.pdfgen import canvas
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from models.prescription import Prescription
@@ -55,6 +55,44 @@ def get_pescriptions_by_id(student_id: int, skip: int = 0, limit: int = 100, db:
 @router.post("/")
 def create_prescription(prescription: PrescriptionCreate, db: Session = Depends(get_db)):
     return ctrl.create_prescription(db, prescription)
+
+@router.put("/{prescription_id}/update-with-audio")
+async def update_prescription_with_audio(
+    prescription_id: int,
+    doctor_id: int = Form(...),
+    doctor_notes: str = Form(...),
+    ai_summary: str = Form(None),
+    status: str = Form(...),
+    doctor_image_url: str = Form(None),
+    file: UploadFile = File(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Unified endpoint:
+    - Handles prescription update + optional audio upload
+    - Stores Cloudinary audio URL in DB
+    """
+    prescription, error = ctrl.update_prescription_with_audio(
+        db=db,
+        prescription_id=prescription_id,
+        doctor_id=doctor_id,
+        doctor_notes=doctor_notes,
+        ai_summary=ai_summary,
+        status=status,
+        doctor_image_url=doctor_image_url,
+        file=file,
+    )
+
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    if not prescription:
+        raise HTTPException(status_code=404, detail="Prescription not found")
+
+    return {
+        "success": True,
+        "message": "Prescription updated successfully",
+        "audio_url": prescription.audio_url,
+    }
 
 @router.put("/{prescription_id}")
 def update_prescription(prescription_id: int, prescription: PrescriptionUpdate, db: Session = Depends(get_db)):

@@ -1,4 +1,5 @@
-from fastapi import HTTPException
+import cloudinary
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import asc, desc
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import outerjoin
@@ -175,6 +176,7 @@ def get_prescription(db: Session, prescription_id: int):
         "status": pres.status,
         "nurse_notes": pres.nurse_notes,
         "doctor_notes": pres.doctor_notes,
+        "ai_summary": pres.ai_summary,
         "nurse_image_url": pres.nurse_image_url,
         "doctor_image_url": pres.doctor_image_url,
         "audio_url": pres.audio_url,
@@ -328,6 +330,53 @@ def update_prescription(db: Session, prescription_id: int, prescription: Prescri
     db.commit()
     db.refresh(db_prescription)
     return db_prescription
+
+def update_prescription_with_audio(
+    db: Session,
+    prescription_id: int,
+    doctor_id: int,
+    doctor_notes: str,
+    ai_summary: str,
+    status: str,
+    doctor_image_url: str = None,
+    file: UploadFile = None
+):
+    """
+    Uploads audio (if provided) to Cloudinary and updates prescription record.
+    """
+    db_prescription = db.query(Prescription).filter(Prescription.id == prescription_id).first()
+    if not db_prescription:
+        return None, "Prescription not found"
+
+    try:
+        # Upload audio to Cloudinary (if available)
+        audio_url = None
+        if file:
+            upload_result = cloudinary.uploader.upload(
+                file.file,
+                resource_type="video",
+                folder="hms/doctor-audio"
+            )
+            audio_url = upload_result.get("secure_url")
+
+        # Update DB record
+        db_prescription.doctor_id = doctor_id
+        db_prescription.doctor_notes = doctor_notes
+        db_prescription.ai_summary = ai_summary
+        db_prescription.status = status
+        if audio_url:
+            db_prescription.audio_url = audio_url
+        if doctor_image_url:
+            db_prescription.doctor_image_url = doctor_image_url
+
+        db.commit()
+        db.refresh(db_prescription)
+
+        return db_prescription, None
+
+    except Exception as e:
+        db.rollback()
+        return None, str(e)
 
 def delete_prescription(db: Session, prescription_id: int):
     db_prescription = db.query(Prescription).filter(Prescription.id == prescription_id).first()

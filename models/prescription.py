@@ -21,6 +21,7 @@ class Prescription(Base):
     nurse_image_url = Column(String(255), nullable=True)
     doctor_image_url = Column(String(255), nullable=True)
     audio_url = Column(String(255), nullable=True)
+    ai_summary = Column(Text, nullable=True)
 
     # Vitals
     weight = Column(String(20), nullable=True)
