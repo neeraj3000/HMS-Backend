@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from controllers import medicine_controller as ctrl
+from models.medicine import Medicine
 from schemas.medicine_schema import MedicineCreate, MedicineUpdate
 
 router = APIRouter(prefix="/medicines", tags=["Medicines"])
@@ -33,6 +34,12 @@ async def approve_indent(file: UploadFile = File(...), db: Session = Depends(get
         raise HTTPException(status_code=400, detail="Only .xlsx files are supported")
     result = ctrl.approve_indent_excel(file, db)
     return {"message": "Indent approved successfully", **result}
+
+@router.get("/")
+def read_medicines(search: str = "", db: Session = Depends(get_db)):
+    return db.query(Medicine).filter(
+        Medicine.name.ilike(f"%{search}%")
+    ).limit(20).all()
 
 
 # 3️⃣ List Medicines
