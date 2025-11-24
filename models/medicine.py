@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, String, Float, Date
 from database import Base
 
 class Medicine(Base):
@@ -11,3 +11,5 @@ class Medicine(Base):
     cost = Column(Float, nullable=True)
     tax = Column(Float, nullable=True)
     total_cost = Column(Float, nullable=True)
+    category = Column(String, nullable=True)
+    expiry_date = Column(Date, nullable=True)

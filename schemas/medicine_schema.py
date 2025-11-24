@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-
+from datetime import date
 
 # Base Schema
 class MedicineBase(BaseModel):
@@ -10,26 +10,28 @@ class MedicineBase(BaseModel):
     cost: Optional[float] = Field(None, example=10.5)
     tax: Optional[float] = Field(None, example=1.8)
     total_cost: Optional[float] = Field(None, example=12.3)
+    category: Optional[str] = Field(None, example="Antibiotic")
+    expiry_date: Optional[date] = Field(None, example="2025-06-30")
 
 
-# Create Schema
 class MedicineCreate(MedicineBase):
     pass
 
 
-# Update Schema
 class MedicineUpdate(BaseModel):
-    name: Optional[str] = Field(None, example="Paracetamol")
-    brand: Optional[str] = Field(None, example="Cipla")
-    quantity: Optional[int] = Field(None, example=50)
-    cost: Optional[float] = Field(None, example=10.5)
-    tax: Optional[float] = Field(None, example=1.8)
-    total_cost: Optional[float] = Field(None, example=12.3)
+    name: Optional[str] = None
+    brand: Optional[str] = None
+    quantity: Optional[int] = None
+    cost: Optional[float] = None
+    tax: Optional[float] = None
+    total_cost: Optional[float] = None
+
+    category: Optional[str] = None
+    expiry_date: Optional[date] = None
 
 
-# Response Schema
 class MedicineResponse(MedicineBase):
-    id: int = Field(..., example=1)
+    id: int
 
     class Config:
         from_attributes = True

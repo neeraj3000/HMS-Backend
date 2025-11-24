@@ -35,18 +35,47 @@ async def approve_indent(file: UploadFile = File(...), db: Session = Depends(get
     result = ctrl.approve_indent_excel(file, db)
     return {"message": "Indent approved successfully", **result}
 
-@router.get("/")
-def read_medicines(search: str = "", db: Session = Depends(get_db)):
-    return db.query(Medicine).filter(
-        Medicine.name.ilike(f"%{search}%")
-    ).limit(20).all()
-
 
 # 3️⃣ List Medicines
 @router.get("/")
-def read_medicines(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return ctrl.get_medicines(db, skip, limit)
+def list_medicines(
+    page: int = 1,
+    limit: int = 20,
+    search: str = "",
+    brand: str = "",
+    category: str = "",
+    db: Session = Depends(get_db),
+):
+    if page < 1:
+        page = 1
 
+    skip = (page - 1) * limit
+
+    query = db.query(Medicine)
+
+    # Search filter
+    if search.strip():
+        query = query.filter(Medicine.name.ilike(f"%{search.strip()}%"))
+
+    # Brand filter
+    if brand.strip() and brand.lower().strip() != "all":
+        query = query.filter(Medicine.brand.ilike(f"%{brand.strip()}%"))
+
+    # Category filter (NEW)
+    if category.strip() and category.lower().strip() != "all":
+        query = query.filter(Medicine.category.ilike(f"%{category.strip()}%"))
+
+    total = query.count()
+    medicines = query.offset(skip).limit(limit).all()
+
+    return {
+        "data": medicines,
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "has_more": (page * limit) < total,
+    }
+    
 
 # 4️⃣ Single Medicine Operations
 @router.get("/{medicine_id}")
