@@ -56,9 +56,8 @@ def get_medicine_inventory_excel(db: Session) -> BytesIO:
 
     # Headers
     ws.append([
-        "ID", "Name", "Brand", "Quantity",
-        "Cost", "Tax", "Total Cost",
-        "Category", "Expiry Date"
+        "ID", "Name", "Brand", "Category","Quantity", "Expiry Date",
+        "Cost", "Tax", "Total Cost"
     ])
 
     for med in medicines:
@@ -66,12 +65,12 @@ def get_medicine_inventory_excel(db: Session) -> BytesIO:
             med.id,
             med.name,
             med.brand,
+            med.category,
             med.quantity,
+            str(med.expiry_date) if med.expiry_date else None,
             med.cost,
             med.tax,
-            med.total_cost,
-            med.category,
-            str(med.expiry_date) if med.expiry_date else None
+            med.total_cost
         ])
 
     buffer = BytesIO()
@@ -95,12 +94,12 @@ def import_medicine_inventory_excel(file, db: Session):
 
             name = str(row[0]).strip().upper() if row[0] else None
             brand = str(row[1]).strip() if row[1] else None
-            quantity = int(row[2]) if row[2] else 0
-            cost = float(row[3]) if row[3] else 0
-            tax = float(row[4]) if row[4] else 0
-            total_cost = float(row[5]) if row[5] else (cost + tax)
-            category = None
-            expiry_date = None  # Always NULL as you required
+            category = str(row[2]).strip() if row[2] else None
+            quantity = int(row[3]) if row[3] else 0
+            expiry_date = row[4] if row[4] else None
+            cost = float(row[5]) if row[5] else 0
+            tax = float(row[6]) if row[6] else 0
+            total_cost = float(row[7]) if row[7] else (cost + tax)
 
             if not name:
                 continue
@@ -109,7 +108,9 @@ def import_medicine_inventory_excel(file, db: Session):
 
             if existing:
                 existing.brand = brand or existing.brand
+                existing.category = category or existing.category
                 existing.quantity = quantity
+                existing.expiry_date = expiry_date or existing.expiry_date
                 existing.cost = cost
                 existing.tax = tax
                 existing.total_cost = total_cost

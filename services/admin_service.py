@@ -1,5 +1,7 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from models.staff_profile import StaffProfile
 from models.student import Student
 from models.user import User
 from models.prescription import Prescription
@@ -61,11 +63,44 @@ def get_all_users(db: Session):
     return db.query(User).all()
 
 def create_user(db: Session, user_data):
-    user = User(**user_data)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+    try:
+        # Create User
+        user = User(
+            username=user_data.username,
+            email=user_data.email,
+            password=user_data.password,  # hash later
+            role=user_data.role
+        )
+        db.add(user)
+        db.flush()  # ensures user.id is available
+
+        # Create StaffProfile with ONLY USER DATA
+        profile = StaffProfile(
+            user_id=user.id,
+            name=user_data.username,
+            email=user_data.email,
+            phone=None,
+            employeeId=None,
+            department=None,
+            position=None,
+            qualification=None,
+            experience=None,
+            joinDate=None,
+            address=None,
+            licenseNumber=None
+        )
+
+        db.add(profile)
+
+        # Commit both
+        db.commit()
+        db.refresh(user)
+
+        return user
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
 
 def update_user(db: Session, user_id: int, user_data):
     user = db.query(User).filter(User.id == user_id).first()

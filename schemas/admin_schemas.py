@@ -1,7 +1,9 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime, date
 from enum import Enum
+
+from schemas.prescription_schema import MedicineEntry
 
 
 class UserRole(str, Enum):
@@ -79,21 +81,51 @@ class MedicineOut(MedicineBase):
         from_attributes = True
 
 
-class PrescriptionOut(BaseModel):
-    id: int
-    student_id: int
+class PrescriptionBase(BaseModel):
+    student_id: Optional[int] = None          # null for others
+    other_name: Optional[str] = None          # for others
+
     nurse_id: int
+
+    nurse_notes: Optional[str] = None
+    doctor_notes: Optional[str] = None
+    ai_summary: Optional[str] = None
+
+    nurse_image_url: Optional[str] = None
+    doctor_image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+
+    weight: Optional[str] = None
+    bp: Optional[str] = None
+    age: Optional[int] = None
+    temperature: Optional[str] = None
+
+    patient_type: Optional[str] = None       
+    visit_type: Optional[str] = None        
+
+    status: Optional[str] = None             
+
+
+# CREATE SCHEMA
+class PrescriptionCreate(PrescriptionBase):
+    medicines: Optional[List[MedicineEntry]] = None  
+    lab_tests: Optional[List[str]] = None            
+
+
+# UPDATE SCHEMA (doctor endpoint)
+class PrescriptionUpdate(BaseModel):
+    doctor_id: Optional[int] = None
+    doctor_notes: Optional[str] = None
+    ai_summary: Optional[str] = None
+    doctor_image_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    status: Optional[str] = None
+
+
+# RESPONSE SCHEMA
+class PrescriptionOut(PrescriptionBase):
+    id: int
     doctor_id: Optional[int]
-    nurse_notes: Optional[str]
-    doctor_notes: Optional[str]
-    nurse_image_url: Optional[str]
-    doctor_image_url: Optional[str]
-    audio_url: Optional[str]
-    weight: Optional[str]
-    bp: Optional[str]
-    temperature: Optional[str]
-    age: Optional[int]
-    status: str
     created_at: datetime
     updated_at: Optional[datetime]
 
