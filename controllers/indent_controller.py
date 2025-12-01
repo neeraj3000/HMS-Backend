@@ -90,6 +90,8 @@ def approve_indent(indent_id: int, approved_by: str, db: Session):
                 existing.cost = cost or existing.cost
                 existing.tax = tax or existing.tax
                 existing.total_cost = total_cost or existing.total_cost
+                existing.category = existing.category
+                existing.expiry_date = None
                 updated += 1
             else:
                 new_medicine = Medicine(
@@ -98,7 +100,9 @@ def approve_indent(indent_id: int, approved_by: str, db: Session):
                     quantity=int(present_qty or 0) + int(required_qty or 0),
                     cost=cost,
                     tax=tax,
-                    total_cost=total_cost
+                    total_cost=total_cost,
+                    category=None,
+                    expiry_date=None
                 )
                 db.add(new_medicine)
                 inserted += 1

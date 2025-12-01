@@ -1,4 +1,7 @@
+import json
+import os
 from fastapi import HTTPException
+import requests
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from models.staff_profile import StaffProfile
@@ -10,6 +13,8 @@ from models.prescription_medicine import PrescriptionMedicine
 from models.medicine import Medicine
 from schemas.admin_schemas import DashboardStats, MedicineAnalytics, AnomalyAlert
 from datetime import date, datetime
+from dotenv import load_dotenv
+load_dotenv()
 
 def get_dashboard_stats(db: Session) -> DashboardStats:
     today = date.today()
@@ -44,9 +49,11 @@ def get_dashboard_stats(db: Session) -> DashboardStats:
     # Total students
     total_students = db.query(func.count(Student.id)).scalar()
 
-    total_stock_value = db.query(
-        func.coalesce(func.sum(Medicine.total_cost), 0)
-    ).scalar()
+    total_stock_value = (
+        db.query(func.sum(Medicine.quantity * func.coalesce(Medicine.cost, 0)))
+        .scalar()
+        or 0
+    )
 
     return DashboardStats(
         totalPatientsToday=total_patients_today,
@@ -190,14 +197,180 @@ def get_medicine_analytics(db: Session):
     return analytics
 
 # ---------------------- ANOMALIES -----------------------
+AI_URL = os.getenv("AI_URL", "https://api.openai.com/v1/chat/completions")
+AI_KEY = os.getenv("AI_KEY")
+
+
+def call_ai(prompt: str):
+    """
+    Handles AI call (OpenAI / custom model / LM Studio / FastAPI LLM server).
+    """
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {AI_KEY}"
+    }
+
+    body = {
+        "model": "gpt-4o-mini",     # Change as needed
+        "messages": [
+            {"role": "system", "content": "You are an anomaly detection engine."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0,
+    }
+
+    response = requests.post(AI_URL, headers=headers, json=body)
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"]
+
+
 def get_anomalies(db: Session):
-    return [
-        AnomalyAlert(
-            id="1",
-            type="StockMismatch",
-            severity="medium",
-            message="Mismatch between recorded and actual stock.",
-            timestamp=datetime.now(),
-            details="Medicine X count mismatch",
-        )
+    """
+    Collect all hospital data & send to AI model for anomaly detection.
+    """
+
+    # ---- 1. Collect medicines ----
+    medicines = db.query(Medicine).all()
+    medicines_data = [
+        {
+            "id": m.id,
+            "name": m.name,
+            "brand": m.brand,
+            "category": m.category,
+            "expiry_date": m.expiry_date.isoformat() if m.expiry_date else None,
+            "quantity": m.quantity,
+            "cost": m.cost,
+            "tax": m.tax,
+            "total_cost": m.total_cost,
+        }
+        for m in medicines
     ]
+
+    # ---- 2. Collect prescriptions ----
+    prescriptions = db.query(Prescription).all()
+    prescriptions_data = [
+        {
+            "id": p.id,
+            "student_id": p.student_id,
+            "other_name": p.other_name,
+            "patient_type": p.patient_type,
+            "visit_type": p.visit_type,
+            "status": p.status,
+            "age": p.age,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        }
+        for p in prescriptions
+    ]
+
+    # ---- 3. Collect medicine usage ----
+    prescribed_data = db.query(PrescriptionMedicine).all()
+    prescribed_usage = [
+        {
+            "prescription_id": pm.prescription_id,
+            "medicine_id": pm.medicine_id,
+            "quantity_prescribed": pm.quantity_prescribed,
+            "quantity_issued": pm.quantity_issued,
+        }
+        for pm in prescribed_data
+    ]
+
+    # ---- 4. Collect lab reports ----
+    lab_reports = db.query(LabReport).all()
+    lab_reports_data = [
+        {
+            "id": lr.id,
+            "prescription_id": lr.prescription_id,
+            "test_name": lr.test_name,
+            "status": lr.status,
+            "result_uploaded": bool(lr.result or lr.result_url),
+        }
+        for lr in lab_reports
+    ]
+
+    # ---- 5. Collect students ----
+    students = db.query(Student).all()
+    students_data = [
+        {
+            "id": s.id,
+            "id_number": s.id_number,
+            "name": s.name,
+            "branch": s.branch,
+            "section": s.section,
+            "email": s.email,
+        }
+        for s in students
+    ]
+
+    # ---- 6. Construct dataset ----
+    full_dataset = {
+        "timestamp": datetime.now().isoformat(),
+        "medicines": medicines_data,
+        "prescriptions": prescriptions_data,
+        "medicine_usage": prescribed_usage,
+        "lab_reports": lab_reports_data,
+        "students": students_data,
+    }
+
+    # Convert to text for AI
+    dataset_json = json.dumps(full_dataset, indent=2)
+
+    # ---- 7. Send prompt to AI ----
+    prompt = f"""
+        You are an expert AI anomaly detection engine for a Hospital Management System.
+
+        Analyze the following dataset and identify ALL types of anomalies:
+
+        Dataset:
+        {dataset_json}
+
+        Find anomalies in:
+
+        1. **Medicine Inventory**
+        - Negative stock
+        - Expired medicines
+        - Quantity issued > stock
+        - Inconsistent total_cost
+        - Missing categories
+        - Expiry date too near
+        - Medicine prescribed but not in stock
+
+        2. **Prescriptions**
+        - Prescription with no medicines issued
+        - Missing vital fields
+        - Invalid patient type
+        - Duplicate prescriptions
+        - Wrong status flows
+
+        3. **Medicine Usage**
+        - quantity_issued > quantity_prescribed
+        - Missing prescription reference
+
+        4. **Lab Reports**
+        - Completed without result uploaded
+        - Pending for too long
+        - Lab report without prescription
+
+        5. **Students**
+        - Duplicate ID numbers
+        - Missing fields
+
+        Return output in JSON EXACTLY like this:
+        {{
+        "anomalies": [
+            {{
+            "type": "StockMismatch",
+            "severity": "high",
+            "message": "",
+            "details": ""
+            }}
+        ]
+        }}
+    """
+
+    result = call_ai(prompt)
+
+    return {
+        "success": True,
+        "generated_at": datetime.now(),
+        "anomalies": json.loads(result)
+    }
