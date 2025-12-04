@@ -77,7 +77,7 @@ def approve_indent(indent_id: int, approved_by: str, db: Session):
 
     for index, row in enumerate(sheet.iter_rows(min_row=2, values_only=True)):
         try:
-            s_no, drug_name, brand, present_qty, required_qty, cost, tax, total_cost = row[:8]
+            s_no, drug_name, brand, category, present_qty, required_qty, cost, tax, total_cost = row[:8]
             if not drug_name:
                 continue
 
@@ -90,7 +90,7 @@ def approve_indent(indent_id: int, approved_by: str, db: Session):
                 existing.cost = cost or existing.cost
                 existing.tax = tax or existing.tax
                 existing.total_cost = total_cost or existing.total_cost
-                existing.category = existing.category
+                existing.category = category or existing.category
                 existing.expiry_date = None
                 updated += 1
             else:
@@ -101,7 +101,7 @@ def approve_indent(indent_id: int, approved_by: str, db: Session):
                     cost=cost,
                     tax=tax,
                     total_cost=total_cost,
-                    category=None,
+                    category=category or None,
                     expiry_date=None
                 )
                 db.add(new_medicine)
@@ -126,3 +126,7 @@ def approve_indent(indent_id: int, approved_by: str, db: Session):
 def get_all_indents(db: Session):
     """List all indents with their details."""
     return db.query(Indent).order_by(Indent.uploaded_at.desc()).all()
+
+def get_sample_indent():
+    return {"url": "https://res.cloudinary.com/dfdpmmrdd/raw/upload/v1764833833/sample_indent.xlsx"}
+

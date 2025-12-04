@@ -28,6 +28,13 @@ async def approve_indent(indent_id: int, approved_by: str = Form(...), db: Sessi
         raise HTTPException(status_code=400, detail=result["error"])
     return result
 
+@router.get("/sample")
+async def get_sample_indent():
+    """Provide a sample indent Excel file for download."""
+    result =  ctrl.get_sample_indent()
+    if "error" in result:
+        raise HTTPException(status_code=400, detail="File not found")
+    return result
 
 @router.get("/")
 def list_indents(db: Session = Depends(get_db)):
